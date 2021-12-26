@@ -1,0 +1,403 @@
+---
+title: "Examen de SQL sur R M2 ENSP 2021-2022"
+author: "Soumaïla DA"
+date: "18/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## **Charger le package sqldf**
+```{r}
+library(sqldf)
+```
+
+# **Partie 1 : Video Game Sales**
+
+## *Télécharger le jeu de données*
+```{r}
+url <- paste0("https://raw.githubusercontent.com/ArthurData/data/main/vgsales/")
+games <- read.csv(paste0(url, "games.csv"), sep=",", na.strings = "")
+platforms <- read.csv(paste0(url, "platforms.csv"), sep=",", na.strings = "")
+```
+
+**games**
+```{r}
+head(games)
+```
+
+**platforms**
+```{r}
+head(platforms)
+```
+
+## **Réponses aux questions**
+
+### **Question 1**
+Ordonner les données, du jeu qui a généré le plus de ventes au Japon, à celui qui en a généré le moins.
+```{r}
+head(sqldf("SELECT Name, JP_Sales
+      FROM games
+      ORDER BY JP_Sales DESC
+      "))
+```
+### **Question 2**
+Calculer la somme des ventes en Europe et la moyenne des ventes au Japon.
+```{r}
+sqldf("SELECT SUM(EU_Sales) AS EU_Total_Sales, AVG(JP_Sales) JP_MEAN_Sales
+      FROM games
+      ")
+```
+### **Question 3**
+Sélectionner tous les jeux ayant réalisé plus de 10M de ventes aux États-Unis.
+```{r}
+sqldf("SELECT Name, NA_Sales
+      FROM games
+      WHERE NA_Sales > 10
+      ")
+```
+
+### **Question 4**
+Sélectionner tous les jeux créés entre 2000 et 2003 et dont le Publisher est Ubisoft.
+```{r}
+sqldf("SELECT Name, Year, Publisher
+      FROM games
+      WHERE Year BETWEEN '2000' AND '2003'
+      AND Publisher = 'Ubisoft'
+      ")
+```
+
+### **Question 5**
+Sélectionner les jeux dont le Publisher est manquant.
+```{r}
+sqldf("SELECT Name, Publisher
+      FROM games
+      WHERE Publisher IS NULL
+      ")
+```
+
+### **Question 6**
+Sélectionner les jeux avec le Publisher « Nintendo » dont les ventes en Europe sont supérieures à 10M ou les jeux du publisher « Sony Computer Entertainment » dont les ventes au Japon sont supérieures à 3M.
+```{r}
+sqldf("SELECT Name, Publisher, EU_Sales, JP_Sales
+      FROM games
+      WHERE (Publisher = 'Nintendo' AND EU_Sales > 10)
+      OR (Publisher = 'Sony Computer Entertainment' AND JP_Sales > 3)
+      ")
+```
+
+### **Question 7**
+Combien de jeux contiennent le mot « Mario » dans le titre ?
+```{r}
+sqldf("SELECT COUNT(*) AS Total_Mario
+      FROM games
+      WHERE Name LIKE '%Mario%'
+      ")
+```
+
+### **Question 8**
+Combien de jeux contiennent les lettres « a », « f » et « u » ? Respecter l’ordre des lettres.
+```{r}
+sqldf("SELECT COUNT(*) AS Total_a_f_u
+      FROM games
+      WHERE Name LIKE '%a%f%u%'
+      ")
+```
+
+### **Question 9**
+Sélectionner tous les jeux du genre : Sports, Action, Simulation et qui ont entre 4M et 8M de vente aux États-Unis.
+```{r}
+sqldf("SELECT Name, Genre, NA_Sales
+      FROM games
+      WHERE Genre IN ('Sports','Action','Simulation')
+      AND NA_Sales BETWEEN 4 AND 8
+      ")
+```
+
+### **Question 10**
+Parmi les jeux qui contiennent « FIFA » dans le titre, quel est celui qui a réalisé le plus de ventes en Europe.
+```{r}
+sqldf("SELECT Name, EU_Sales
+      FROM games
+      WHERE Name LIKE '%FIFA%'
+      ORDER BY EU_Sales DESC
+      LIMIT 1
+      ")
+```
+
+### Question 11
+Calculer la somme des ventes au Japon et en Europe par Publisher.
+```{r}
+sqldf("SELECT DISTINCT Publisher, SUM(JP_Sales) AS JP_Total_Sales, SUM(EU_Sales) AS EU_Total_Sales
+      FROM games
+      GROUP BY Publisher
+      ORDER BY JP_Total_Sales DESC
+      ")
+```
+
+### **Question 12**
+Quelle est l’année minimum et maximum de publication des jeux par Publisher ?
+```{r}
+sqldf("SELECT DISTINCT Publisher, MIN(Year) AS Year_Min, MAX(Year) AS Year_Max
+      FROM games
+      GROUP BY Publisher
+      ORDER BY Year_Max DESC, Year_Min
+      ")
+```
+
+### **Question 13**
+Créer une nouvelle colonne nommée « gender2 » qui contient :
+« Jeu de course » si le genre est « Racing »
+« Jeu de rôle » si le genre est « Role-Playing »
+« Jeu de combat » si le genre est « Action », « Simulation » et « Fighting »
+« Autres types » pour les autres genres
+Calculer la moyenne des ventes au Japon avec la nouvelle catégorie de jeu « gender2 ».
+```{r}
+sqldf("SELECT CASE
+        WHEN Genre = 'Racing' THEN 'Jeu de course'
+        WHEN Genre = 'Role-Playing' THEN 'Jeu de rôle'
+        WHEN Genre = 'Action' THEN 'Jeu de combat'
+        ELSE 'Autres types'
+      END AS gender2, AVG(JP_Sales) AS JP_Sales_AVG
+      FROM games
+      GROUP BY gender2
+      ORDER BY AVG(JP_Sales) DESC
+      ")
+```
+
+### **Question 14**
+Créer une nouvelle colonne nommée « BestSellers » qui contient :
+« Pokémon » si le titre contient « Pokemon »
+« Mario » si le titre contient « Mario »
+« Call of Duty » si le titre contient « Call of Duty »
+Parmi les bestsellers, quelle est la somme des ventes aux États-Unis ? Conserver les bestsellers avec plus 100M de ventes.
+```{r}
+sqldf("SELECT CASE
+        WHEN name LIKE '%Pokemon%' THEN 'Pokémon'
+        WHEN name LIKE '%Mario%' THEN 'Mario'
+        WHEN name LIKE '%Call of Duty%' THEN 'Call of Duty'
+      END AS BestSellers, SUM(NA_Sales) AS NA_Total_Sales
+      FROM games
+      WHERE BestSellers IS NOT NULL
+      GROUP BY BestSellers
+      HAVING SUM(NA_Sales) > 100
+      ")
+```
+
+### **Question 15**
+Quels sont les plateformes qui ont généré le plus de ventes totales ? Conserver uniquement les 3 premiers.
+```{r}
+sqldf("SELECT pl.Name AS Platforms, SUM(ga.Total_Sales) AS Totale_Vente
+      FROM platforms AS pl
+      INNER JOIN games AS ga
+        ON pl.ID = ga.Platform_id
+      GROUP BY pl.Name
+      ORDER BY SUM(ga.Total_Sales) DESC
+      LIMIT 3
+      ")
+```
+
+### **Question 16**
+Quelle est l’année de première parution d’un jeu par plateforme. Trier les jeux, des plus anciens, aux plus récents.
+```{r}
+sqldf("SELECT pl.Name AS Platforms, ga.name AS First_Game, MIN(ga.Year) AS First_Year
+      FROM platforms AS pl
+        INNER JOIN games AS ga
+          ON pl.ID = ga.Platform_id
+      GROUP BY pl.Name
+      HAVING MIN(Year) = ga.Year
+      ")
+```
+
+### **Question 17**
+Calculer les ventes totales par plateforme. Afficher le nom de la platforme et conserver celles entre 100M et 300M de ventes, ou celles avec plus de 1000M de ventes.
+```{r}
+sqldf("SELECT pl.Name, SUM(ga.Total_Sales) AS Totale_Vente
+      FROM platforms AS pl
+        INNER JOIN games AS ga
+          ON pl.ID = ga.Platform_id
+      GROUP BY pl.Name
+      HAVING ((SUM(ga.Total_Sales) BETWEEN 100 AND 300)
+              OR (SUM(ga.Total_Sales) > 1000))
+      ORDER BY Totale_Vente DESC
+      ")
+```
+
+
+
+# **Partie 2 : Moovies**
+
+## **Télécharger le jeu de données**
+```{r}
+url <- paste0("https://raw.githubusercontent.com/ArthurData/data/main/moovies/")
+moovies <- read.csv(paste0(url, "moovies.csv"), sep=",", na.strings = "")
+categories <- read.csv(paste0(url, "categories.csv"), sep=",", na.strings = "")
+moovies_categories <- read.csv(paste0(url, "moovies_categories.csv"), sep=",", na.strings = "")
+```
+
+**moovies**
+```{r}
+head(moovies)
+```
+
+**categories**
+```{r}
+head(categories)
+```
+
+**moovies_categories**
+```{r}
+head(moovies_categories)
+```
+
+
+## **Questions**
+
+### **Question 1**
+Quelle est la note moyenne des films ?
+```{r}
+sqldf("SELECT AVG(note) AS Note_Mean
+      FROM moovies
+      ")
+```
+
+### **Question 2**
+Quelle est la durée moyenne des films dont les réalisateurs sont : Christopher Nolan et Clint Eastwood
+```{r}
+sqldf("SELECT directory AS Réalisateur, AVG(duration) AS Duree_Mean
+      FROM moovies
+      WHERE directory IN ('Christopher Nolan', 'Clint Eastwood')
+      GROUP BY directory
+      ")
+```
+
+### **Question 3**
+Combien de critiques ont reçu les films dont la sortie a eu lieu entre le 1 Janvier 2010 et le 1 Janvier 2015
+```{r}
+sqldf("SELECT MIN(release_date) AS Date_Min, MAX(release_date) AS Date_MAX, SUM(reviews) AS NB_CRITIQUE
+      FROM moovies
+      WHERE release_date BETWEEN '2010-01-01' AND '2015-01-01'
+      ")
+```
+
+### **Question 4**
+Transformer la colonne duration, actuellement en secondes, en minutes.
+```{r}
+sqldf("SELECT id, title, release_date, (duration/60) AS duration, directory, note, reviews
+      FROM moovies
+      ")
+```
+
+### **Question 5**
+Quelle est la catégorie de film la plus représentée ? (Afficher le nom de la catégorie et son occurence)
+```{r}
+sqldf("SELECT ca.name AS Catégorie, COUNT(*) AS Occurence
+      FROM moovies AS mo
+        INNER JOIN moovies_categories AS mc
+          ON mo.id = mc.moovie_id
+            INNER JOIN categories AS ca
+              ON ca.id = mc.category_id
+      GROUP BY ca.name
+      ORDER BY Occurence DESC
+      LIMIT 1
+      ")
+```
+
+### **Question 6**
+Quelles sont les catégories de film que le réalisateur Clint Eastwood produit ?
+```{r}
+sqldf("SELECT DISTINCT mo.directory, ca.name AS Catégorie
+      FROM moovies AS mo
+        INNER JOIN moovies_categories AS mc
+          ON mo.id = mc.moovie_id
+            INNER JOIN categories AS ca
+              ON ca.id = mc.category_id
+      WHERE mo.directory = 'Clint Eastwood'
+      ")
+```
+
+### **Question 7**
+Quelle est la catégorie qui possède la meilleure moyenne ?
+```{r}
+sqldf("SELECT ca.name AS Catégorie, AVG(mo.note) AS Note_Mean
+      FROM moovies AS mo
+        INNER JOIN moovies_categories AS mc
+          ON mo.id = mc.moovie_id
+            INNER JOIN categories AS ca
+              ON ca.id = mc.category_id
+      GROUP BY ca.name
+      ORDER BY AVG(mo.note) DESC
+      LIMIT 1
+      ")
+```
+
+
+
+
+# **Partie 3 : Series**
+
+## **Charger le package DBI**
+```{r}
+library(DBI)
+```
+
+## **Création d'une Base de Données examen avec le SGBD SQLite**
+
+
+```{r}
+db_exam <-  dbConnect(RSQLite::SQLite(), dbname="examen")
+```
+
+## **Ajouter une table dans le Base de Données**
+```{r}
+dbSendQuery(conn=db_exam,
+            "CREATE TABLE series
+            (
+              id INTEGER PRIMARY KEY NOT NULL,
+              Title VARCHAR(20),
+              note FLOAT,
+              remark VARCHAR(50)
+            )
+            ")
+```
+
+## **Vérifier que la table a bien été créee**
+```{r}
+dbListTables(db_exam)
+```
+
+## **Insertion des Données**
+```{r}
+dbSendQuery(conn = db_exam,
+            "INSERT INTO series
+              VALUES
+                (1, 'Game of Trone', 4.2, 'La meilleure Serie Drame'),
+                (2, 'Prison Break', 4.6, 'Si tu veux rester scotcher à ton écran essaie'),
+                (3, 'CASA De Papel', 4.9, 'Que dire de ce film, il bat tous les recores'),
+                (4, 'Vikings', 4.5, 'Excellent film mais un peu vulgaire'),
+                (5, 'Shooter', 4.6, 'Serie action américaine')
+            ")
+```
+
+## **Quelques réquêtes**
+
+### Afficher la liste de mes séries preférées
+```{r}
+dbGetQuery(conn = db_exam, "SELECT * FROM series")
+```
+
+### Note Moyenne que j'ai attribué aux séries
+```{r}
+dbGetQuery(conn = db_exam, "SELECT AVG(note) AS Note_Moyenne
+           FROM series")
+```
+
+### Classement de mes séries de la meilleure note à la moins bonne note supérieure à 4.5
+```{r}
+dbGetQuery(conn = db_exam, "SELECT *
+           FROM series
+           WHERE note > 4.5
+           ORDER BY note DESC")
+```
